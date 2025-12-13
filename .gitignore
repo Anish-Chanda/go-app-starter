@@ -1,0 +1,32 @@
+# Go
+# Binaries for programs and plugins
+/bin/
+/bin
+pkg/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary and coverage
+*.test
+coverage.out
+*.coverprofile
+*.prof
+
+# Dependency directories (remove if vendoring)
+vendor/
+
+# Go tools / workspace files
+go.work
+
+# Editor/OS files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
