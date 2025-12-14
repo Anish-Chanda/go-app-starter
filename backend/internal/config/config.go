@@ -36,6 +36,17 @@ type LogConfig struct {
 	Out io.Writer
 }
 
+type DbConfig struct {
+	// Database connection string
+	DSN string
+	// Max connections
+	MaxConn int
+	// Min connections
+	MinConn int
+	// Max conntection lifetime in minutes
+	MaxConnLifetime int
+}
+
 type Config struct {
 	// Server configuration
 	APIPort int
@@ -46,6 +57,9 @@ type Config struct {
 
 	// Logging configuration
 	Log LogConfig
+
+	// Database configuration
+	Db DbConfig
 }
 
 func LoadConfig() (*Config, error) {
@@ -61,6 +75,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	logLevel, err := getEnvAsZerologLevel("LOG_LEVEL", zerolog.InfoLevel)
+	if err != nil {
+		return nil, err
+	}
+	dsn, err := getRequiredEnvString("DATABASE_DSN")
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +100,13 @@ func LoadConfig() (*Config, error) {
 			PrettyTimeFormat:    getEnvAsString("LOG_PRETTY_TIME_FORMAT", "2006-01-02T15:04:05Z07:00"),
 			JSONTimeFieldFormat: getEnvAsString("LOG_JSON_TIME_FIELD_FORMAT", zerolog.TimeFormatUnix),
 			Out:                 os.Stdout,
+		},
+
+		Db: DbConfig{
+			DSN:             dsn,
+			MaxConn:         getEnvAsInt("DB_MAX_CONN", 20),
+			MinConn:         getEnvAsInt("DB_MIN_CONN", 5),
+			MaxConnLifetime: getEnvAsInt("DB_MAX_CONN_LIFETIME", 60), // in minutes
 		},
 	}
 	return config, nil

@@ -1,15 +1,31 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
 
 	cfg "github.com/anish-chanda/go-app-starter/internal/config"
+	"github.com/anish-chanda/go-app-starter/internal/db"
 	"github.com/anish-chanda/go-app-starter/internal/handlers"
 	"github.com/anish-chanda/go-app-starter/internal/logger"
 )
 
+const (
+	shutdownTimeout = 10 * time.Second
+	startupTimeout  = 5 * time.Second
+)
+
 func main() {
+
+	// Cancel ctx on SIGINT/SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	config, err := cfg.LoadConfig()
 	if err != nil {
 		panic(fmt.Sprintf("failed to load config: %v", err))
@@ -20,30 +36,68 @@ func main() {
 
 	logger.L().Info().Msg("Application started")
 
-	// TODO: add db and auth stuff here
+	// TODO: add auth stuff here
 
-	setupHandlers(config.Host, config.APIPort)
+	startCtx, cancel := context.WithTimeout(ctx, startupTimeout)
+	defer cancel()
+
+	database, err := db.NewPostgresDb(config.Db, startCtx)
+	if err != nil {
+		logger.L().Fatal().Err(err).Msg("Failed to connect to database")
+		return
+	}
+
+	server := buildServer(config.Host, config.APIPort, database)
+
+	// Run server
+	go func() {
+		logger.L().Info().Msgf("Starting server on %s", server.Addr)
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.L().Fatal().Err(err).Msg("Server failed")
+		}
+	}()
+
+	// Wait for signal
+	<-ctx.Done()
+	logger.L().Warn().Msg("Shutting down server...")
+
+	// Give active requests time to finish
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		// Shutdown timed out or failed, Close() force-closes connections.
+		logger.L().Error().Err(err).Msg("Graceful shutdown failed, forcing close")
+		_ = server.Close()
+	}
+
+	// Now close DB pool
+	logger.L().Debug().Msgf("closing %d database connections", database.Pool.Stat().TotalConns())
+	database.Pool.Close()
+
+	logger.L().Info().Msg("Shutdown complete")
+
 }
 
-// sets up http handlers and starts the server
-func setupHandlers(host string, port int) {
+func buildServer(host string, port int, database *db.PostgresDB) *http.Server {
+	h := handlers.New(database)
+
 	api := http.NewServeMux()
-
-	api.HandleFunc("GET /health", handlers.Health)
-
-	// test hello endpoitn
+	api.HandleFunc("GET /health", h.Health)
 	api.HandleFunc("GET /hello", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, World!"))
+		_, _ = w.Write([]byte("Hello, World!"))
 	})
 
 	mainMux := http.NewServeMux()
 	mainMux.Handle("/api/", http.StripPrefix("/api", api))
 
-	// wrap with logging middleware and serve
 	addr := fmt.Sprintf("%s:%d", host, port)
 	handler := logger.Http(mainMux)
-	if err := http.ListenAndServe(addr, handler); err != nil {
-		logger.L().Fatal().Err(err).Msg("Server failed")
+
+	return &http.Server{
+		Addr:    addr,
+		Handler: handler,
 	}
 }
