@@ -14,6 +14,9 @@ import (
 	"github.com/anish-chanda/go-app-starter/internal/handlers"
 	"github.com/anish-chanda/go-app-starter/internal/logger"
 	"github.com/anish-chanda/go-app-starter/migrations"
+	authpkg "github.com/go-pkgz/auth/v2"
+	"github.com/go-pkgz/auth/v2/provider"
+	"github.com/go-pkgz/auth/v2/token"
 )
 
 const (
@@ -38,12 +41,10 @@ func main() {
 
 	logger.L().Info().Msg("Application started")
 
-	// TODO: add auth stuff here
-
 	startCtx, cancel := context.WithTimeout(ctx, startupTimeout)
 	defer cancel()
 
-	database, err := db.NewPostgresDb(config.Db, startCtx)
+	database, err := db.NewPostgresDb(config.Db, startCtx, logger.L())
 	if err != nil {
 		logger.L().Fatal().Err(err).Msg("Failed to connect to database")
 		return
@@ -57,7 +58,11 @@ func main() {
 		return
 	}
 
-	server := buildServer(config.Host, config.APIPort, database)
+	// setup auth service
+	h := handlers.New(database)
+	authService := setupAuth(config.Auth, h)
+
+	server := buildServer(config.Host, config.APIPort, database, authService)
 
 	// Run server
 	go func() {
@@ -90,7 +95,7 @@ func main() {
 
 }
 
-func buildServer(host string, port int, database *db.PostgresDB) *http.Server {
+func buildServer(host string, port int, database *db.PostgresDB, authService *authpkg.Service) *http.Server {
 	h := handlers.New(database)
 
 	api := http.NewServeMux()
@@ -103,6 +108,12 @@ func buildServer(host string, port int, database *db.PostgresDB) *http.Server {
 	mainMux := http.NewServeMux()
 	mainMux.Handle("/api/", http.StripPrefix("/api", api))
 
+	// mount auth handlers
+	// TODO: handle avatars
+	authHandlers, _ := authService.Handlers()
+	mainMux.HandleFunc("POST /auth/local/signup", h.SignupHandler)
+	mainMux.Handle("/auth/", http.StripPrefix("/auth", authHandlers))
+
 	addr := fmt.Sprintf("%s:%d", host, port)
 	handler := logger.Http(mainMux)
 
@@ -110,4 +121,24 @@ func buildServer(host string, port int, database *db.PostgresDB) *http.Server {
 		Addr:    addr,
 		Handler: handler,
 	}
+}
+
+func setupAuth(cfg cfg.AuthConfig, h *handlers.Handler) *authpkg.Service {
+	authOptions := authpkg.Opts{
+		SecretReader: token.SecretFunc(func(aud string) (string, error) {
+			return cfg.JWTSecret, nil
+		}),
+		TokenDuration:  time.Duration(cfg.TokenDuration) * time.Minute,
+		CookieDuration: time.Duration(cfg.CookieDuration) * time.Minute,
+		// TODO: Change the issuer based on your project
+		Issuer:      "app",
+		DisableXSRF: cfg.DisableXSRF,
+	}
+
+	authService := authpkg.NewService(authOptions)
+
+	// add local provider
+	authService.AddDirectProvider("local", provider.CredCheckerFunc(h.LocalCredChecker))
+
+	return authService
 }

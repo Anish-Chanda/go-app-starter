@@ -6,7 +6,7 @@ CREATE TYPE auth_provider AS ENUM ('local', 'google', 'github');
 -- users table
 CREATE TABLE users (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    name text,
+    name VARCHAR(255),
     email VARCHAR(254) UNIQUE NOT NULL, -- Max length for email as per RFC 5321
     password_hash text, -- nullable for OAuth users
     auth_provider auth_provider NOT NULL DEFAULT 'local',
