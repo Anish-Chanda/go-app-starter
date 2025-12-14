@@ -13,11 +13,13 @@ import (
 	"github.com/anish-chanda/go-app-starter/internal/db"
 	"github.com/anish-chanda/go-app-starter/internal/handlers"
 	"github.com/anish-chanda/go-app-starter/internal/logger"
+	"github.com/anish-chanda/go-app-starter/migrations"
 )
 
 const (
-	shutdownTimeout = 10 * time.Second
-	startupTimeout  = 5 * time.Second
+	shutdownTimeout    = 10 * time.Second
+	startupTimeout     = 5 * time.Second
+	dbMigrationTimeout = 60 * time.Second
 )
 
 func main() {
@@ -44,6 +46,14 @@ func main() {
 	database, err := db.NewPostgresDb(config.Db, startCtx)
 	if err != nil {
 		logger.L().Fatal().Err(err).Msg("Failed to connect to database")
+		return
+	}
+
+	// run db migrations
+	migCtx, cancel := context.WithTimeout(ctx, dbMigrationTimeout)
+	defer cancel()
+	if err := migrations.RunMigrations(migCtx, database.Pool, logger.L()); err != nil {
+		logger.L().Fatal().Err(err).Msg("Failed to run database migrations")
 		return
 	}
 
