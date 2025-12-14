@@ -1,0 +1,1 @@
+this folder is mainly used for automation tests using libraries like hurl.dev for the backend, and maybe others in the future

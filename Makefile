@@ -21,3 +21,6 @@ dev-up: ## Starts the dev docker-compose services, then runs the api binary
 	docker compose -f docker-compose.dev.yaml up -d
 	sleep 5 # wait for db to be ready
 	@$(MAKE) run-api
+
+auto-tests: ## Runs automation tests
+	hurl --test --jobs 1 tests/backend/*/*.hurl
