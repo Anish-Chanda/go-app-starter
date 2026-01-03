@@ -21,6 +21,12 @@ Content-Type: application/json
 HTTP 200
 [Captures]
 xsrf_token: cookie "XSRF-TOKEN"
+[Asserts]
+# Verify ClaimsUpdater immediately enriches the login response
+jsonpath "$.name" == "Security Test"
+jsonpath "$.email" == "security-test@example.com"
+jsonpath "$.attrs.uid" exists
+jsonpath "$.attrs.provider" == "local"
 
 # Test accessing protected endpoint WITHOUT XSRF token (should fail)
 GET http://localhost:8080/auth/user
@@ -35,7 +41,14 @@ X-Xsrf-Token: {{xsrf_token}}
 
 HTTP 200
 [Asserts]
-jsonpath "$.name" == "security-test@example.com"
+# Verify ClaimsUpdater set display name correctly
+jsonpath "$.name" == "Security Test"
+jsonpath "$.name" != "security-test@example.com"
+jsonpath "$.email" == "security-test@example.com"
+# Verify ClaimsUpdater enrichment
+jsonpath "$.attrs.uid" exists
+jsonpath "$.attrs.uid" matches "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+jsonpath "$.attrs.provider" == "local"
 
 # Test accessing protected endpoint with WRONG XSRF token (should fail)
 GET http://localhost:8080/auth/user

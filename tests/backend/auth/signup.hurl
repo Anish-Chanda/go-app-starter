@@ -1,6 +1,7 @@
 # Tests user registration functionality including validation and error cases
 
 # Test successful user signup
+# Note: ClaimsUpdater enrichment (name, uid, provider attrs) is tested in auth-flow.hurl
 POST http://localhost:8080/auth/local/signup
 Content-Type: application/json
 {
@@ -14,6 +15,7 @@ HTTP 201
 jsonpath "$.email" == "signup-test@example.com"
 jsonpath "$.provider" == "local"
 jsonpath "$.id" exists
+jsonpath "$.id" matches "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
 # Test signup with duplicate email (reuse same email)
 POST http://localhost:8080/auth/local/signup

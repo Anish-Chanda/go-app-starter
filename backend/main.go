@@ -130,6 +130,7 @@ func setupAuth(cfg cfg.AuthConfig, h *handlers.Handler) *authpkg.Service {
 		}),
 		TokenDuration:  time.Duration(cfg.TokenDuration) * time.Minute,
 		CookieDuration: time.Duration(cfg.CookieDuration) * time.Minute,
+		ClaimsUpd:      token.ClaimsUpdFunc(h.ClaimsUpdater()),
 		// TODO: Change the issuer based on your project
 		Issuer:      "app",
 		DisableXSRF: cfg.DisableXSRF,
@@ -137,8 +138,11 @@ func setupAuth(cfg cfg.AuthConfig, h *handlers.Handler) *authpkg.Service {
 
 	authService := authpkg.NewService(authOptions)
 
-	// add local provider
-	authService.AddDirectProvider("local", provider.CredCheckerFunc(h.LocalCredChecker))
+	// add local provider with custom UserID function to use actual database UUID
+	authService.AddDirectProviderWithUserIDFunc("local",
+		provider.CredCheckerFunc(h.LocalCredChecker),
+		h.UserIDFunc(),
+	)
 
 	return authService
 }

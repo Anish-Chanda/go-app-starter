@@ -23,8 +23,19 @@ HTTP 200
 [Captures]
 xsrf_token: cookie "XSRF-TOKEN"
 [Asserts]
-jsonpath "$.name" == "flow-unique@example.com"
+# Verify name is the display name from DB (not the email)
+jsonpath "$.name" == "Auth Test User"
+jsonpath "$.name" != "flow-unique@example.com"
+# Verify email is properly set
+jsonpath "$.email" == "flow-unique@example.com"
+# Verify ID follows OAuth2 pattern (local_<hash>)
 jsonpath "$.id" exists
+jsonpath "$.id" matches "^local_[a-f0-9]+$"
+# Verify ClaimsUpdater added database UUID
+jsonpath "$.attrs.uid" exists
+jsonpath "$.attrs.uid" matches "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+# Verify ClaimsUpdater added provider attribute
+jsonpath "$.attrs.provider" == "local"
 cookie "JWT" exists
 cookie "XSRF-TOKEN" exists
 
@@ -35,7 +46,7 @@ X-Xsrf-Token: {{xsrf_token}}
 HTTP 200
 [Asserts]
 jsonpath "$.status" == "logged in"
-jsonpath "$.user" == "flow-unique@example.com"
+jsonpath "$.user" == "Auth Test User"
 
 # Test accessing user profile when logged in
 GET http://localhost:8080/auth/user
@@ -43,8 +54,19 @@ X-Xsrf-Token: {{xsrf_token}}
 
 HTTP 200
 [Asserts]
-jsonpath "$.name" == "flow-unique@example.com"
+# Verify ClaimsUpdater set name to display name (not email)
+jsonpath "$.name" == "Auth Test User"
+jsonpath "$.name" != "flow-unique@example.com"
+# Verify email is normalized and set correctly
+jsonpath "$.email" == "flow-unique@example.com"
+# Verify ID format
 jsonpath "$.id" exists
+jsonpath "$.id" matches "^local_[a-f0-9]+$"
+# Verify ClaimsUpdater added database UUID attribute
+jsonpath "$.attrs.uid" exists
+jsonpath "$.attrs.uid" matches "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+# Verify ClaimsUpdater added provider attribute for frontend
+jsonpath "$.attrs.provider" == "local"
 
 # Test auth list endpoint
 GET http://localhost:8080/auth/list

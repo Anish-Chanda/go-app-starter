@@ -13,6 +13,7 @@ import (
 
 	"github.com/anish-chanda/go-app-starter/internal/logger"
 	"github.com/anish-chanda/go-app-starter/internal/models"
+	"github.com/go-pkgz/auth/v2/token"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -218,4 +219,71 @@ func (h *Handler) LocalCredChecker(user, password string) (bool, error) {
 	}
 
 	return valid, nil
+}
+
+// UserIDFunc returns a function that provides the actual database UUID for a user
+// This is used by go-pkgz/auth to set the user ID in JWT tokens
+func (h *Handler) UserIDFunc() func(user string, r *http.Request) string {
+	return func(user string, r *http.Request) string {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		email := strings.TrimSpace(strings.ToLower(user))
+
+		// Get user from database to retrieve their UUID
+		dbUser, err := h.DB.GetUserByEmail(ctx, email)
+		if err != nil || dbUser == nil {
+			// Return empty string as fallback - library will use hash
+			return ""
+		}
+
+		// Return the actual database UUID
+		return dbUser.Id.String()
+	}
+}
+
+// ClaimsUpdater returns a function that adds email, database UUID, and auth provider to JWT claims
+// This is used by go-pkgz/auth to populate additional user information in tokens
+func (h *Handler) ClaimsUpdater() func(claims token.Claims) token.Claims {
+	return func(claims token.Claims) token.Claims {
+		if claims.User == nil {
+			return claims
+		}
+
+		// Get user from database to enrich claims with database UUID
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// Determine email based on provider type:
+		// - For OAuth2 providers (google, github, etc.): Email is already set by provider
+		// - For local/direct provider: User.Name contains the email used for login
+		var email string
+		if claims.User.Email != "" {
+			// OAuth2 provider - email is already populated
+			email = strings.TrimSpace(strings.ToLower(claims.User.Email))
+		} else {
+			// Local/direct provider - User.Name contains the email
+			email = strings.TrimSpace(strings.ToLower(claims.User.Name))
+		}
+
+		// Fetch user from database
+		dbUser, err := h.DB.GetUserByEmail(ctx, email)
+		if err == nil && dbUser != nil {
+			// Always set email
+			claims.User.Email = dbUser.Email
+
+			// For local provider, overwrite Name with display name from DB
+			// For OAuth2 providers (google, github, etc.), keep the name from provider
+			if dbUser.AuthProvider == models.AuthProviderLocal {
+				claims.User.Name = dbUser.Name
+			}
+
+			// Always store database UUID as an attribute for backend use
+			claims.User.SetStrAttr("uid", dbUser.Id.String())
+			// Always store auth provider as an attribute for frontend display
+			claims.User.SetStrAttr("provider", string(dbUser.AuthProvider))
+		}
+
+		return claims
+	}
 }
