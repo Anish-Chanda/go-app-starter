@@ -8,6 +8,7 @@ import '../../widgets/global/custom_text_field.dart';
 import '../../widgets/global/primary_button.dart';
 import '../../utils/validator.dart';
 
+// TODO: Implement actual password reset logic
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
