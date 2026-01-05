@@ -4,7 +4,7 @@
 Hello :) 
 First of all, thank you for checking out this repository. I love working on new ideas, but redoing the same backend setup every single time is rather tedious. This template aims to simplify the process by providing a pre-configured starting point for your Golang projects.
 
-![banner image](https://cdn.statically.io/gh/anish-chanda/anish-chanda/main/assets/go_app_starter_template_banner.webp)
+![go_app_starter_template_banner](https://github.com/user-attachments/assets/501283a6-aef8-4666-b8f3-5515e55e7415)
 
 ## Getting Started
 ### Requirements
@@ -57,11 +57,12 @@ This isn’t a fixed roadmap, more like a rough outline of where I’d like to t
     - [ ] Basic roles/permissions support (e.g. user, admin, superadmin)
     - [ ] Middleware for role-based access control
 - App (Flutter)
-    - [ ] Android, iOS, and Web setup
+    - [x] Android and IOS setup
     - [ ] Linux, macOS, and Windows desktop app setup
-    - [ ] Auth flow wired to the backend (login, signup, logout)
-    - [ ] Cookie storage and automatically attaching cookies to API requests
-    - [ ] Placeholder screens for login, signup, and home (no strong design opinions yet)
+    - [x] Auth flow wired to the backend (login, signup, logout)
+    - [ ] Other Auth Flows like password reset
+    - [x] Cookie storage and automatically attaching cookies to API requests
+    - [x] Screens for login, signup, and home (placeholder) (no strong design opinions yet)
 - Web (react)
     - [ ] Tooling and core stack: Bun dev tooling, React scaffold, and Tailwind CSS setup
     - [ ] Routing and data layer: TanStack Router + TanStack Query wired to the API
