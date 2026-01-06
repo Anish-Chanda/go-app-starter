@@ -1,6 +1,7 @@
 # Config
 BACKEND_DIR = backend
 GO_BUILD_DIR = bin
+FLUTTER_DIR = app
 
 .PHONY: build-api run-api help dev-up
 
@@ -9,6 +10,12 @@ help: ## Show this help message
 	@echo ''
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+install-deps: ## Install project dependencies
+	@echo "Installing Go dependencies..."
+	@cd $(BACKEND_DIR) && go mod download
+	@echo "Installing Flutter dependencies..."
+	@cd $(FLUTTER_DIR) && flutter pub get
 
 build-api: ## Build the Go API server
 	@mkdir -p $(GO_BUILD_DIR)
